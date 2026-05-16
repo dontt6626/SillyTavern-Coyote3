@@ -59,11 +59,18 @@ const defaultSettings = {
     socketUrl: 'ws://localhost:9999',
     softLimitA: 100,
     softLimitB: 100,
+    maxPainThresholdA: 50,
+    maxPainThresholdB: 50,
+    freqBalanceA: 160,
+    freqBalanceB: 160,
+    intensityBalanceA: 0,
+    intensityBalanceB: 0,
+    ramping: false,
     guidelines: `1. Match intensity to context: gentle (1-50), moderate (51-120), intense (121-200)
 2. Use commands that fit the scene naturally
 3. Multiple commands per response allowed
 4. Channel A is typically the primary channel, Channel B secondary
-5. Always respect soft limits (default 100) - do not exceed them without user consent`,
+5. Always respect soft limits (default 100) and pain thresholds (default 50) - do not exceed them without user consent`,
 };
 
 // Bluetooth state
@@ -207,17 +214,21 @@ async function sendBFFrame() {
     const settings = extension_settings[MODULE_NAME];
     const limitA = clamp(settings.softLimitA || 100, 0, 200);
     const limitB = clamp(settings.softLimitB || 100, 0, 200);
+    const freqBalA = clamp(settings.freqBalanceA ?? 160, 0, 255);
+    const freqBalB = clamp(settings.freqBalanceB ?? 160, 0, 255);
+    const intBalA = clamp(settings.intensityBalanceA ?? 0, 0, 255);
+    const intBalB = clamp(settings.intensityBalanceB ?? 0, 0, 255);
     const buf = new Uint8Array(7);
     buf[0] = 0xBF;
     buf[1] = limitA;
     buf[2] = limitB;
-    buf[3] = 128; // freq balance param 1 A
-    buf[4] = 128; // freq balance param 1 B
-    buf[5] = 128; // freq balance param 2 A
-    buf[6] = 128; // freq balance param 2 B
+    buf[3] = freqBalA;
+    buf[4] = freqBalB;
+    buf[5] = intBalA;
+    buf[6] = intBalB;
     try {
         await btWriteChar.writeValue(buf);
-        console.log('[Coyote3] BF frame sent: limits', limitA, limitB);
+        console.log('[Coyote3] BF frame sent: limits', limitA, limitB, 'freqBal', freqBalA, freqBalB, 'intBal', intBalA, intBalB);
     } catch (e) {
         console.error('[Coyote3] BF write error:', e);
     }
@@ -397,6 +408,27 @@ async function sendSocketCommand(command, silent = false) {
 
 // --- Unified Command Dispatch ---
 
+let rampIntervalA = null;
+let rampIntervalB = null;
+
+function rampChannelA(dest) {
+    if (rampIntervalA) clearInterval(rampIntervalA);
+    rampIntervalA = setInterval(() => {
+        const diff = dest - targetA;
+        if (Math.abs(diff) <= 1) { targetA = dest; clearInterval(rampIntervalA); rampIntervalA = null; return; }
+        targetA += diff > 0 ? 1 : -1;
+    }, 50);
+}
+
+function rampChannelB(dest) {
+    if (rampIntervalB) clearInterval(rampIntervalB);
+    rampIntervalB = setInterval(() => {
+        const diff = dest - targetB;
+        if (Math.abs(diff) <= 1) { targetB = dest; clearInterval(rampIntervalB); rampIntervalB = null; return; }
+        targetB += diff > 0 ? 1 : -1;
+    }, 50);
+}
+
 async function sendCoyoteCommand(command, silent = false) {
     const settings = extension_settings[MODULE_NAME];
     const mode = settings.mode || 'bluetooth';
@@ -406,22 +438,43 @@ async function sendCoyoteCommand(command, silent = false) {
             if (!silent) console.warn('[Coyote3] Bluetooth not connected');
             return false;
         }
+        const painA = settings.maxPainThresholdA ?? 50;
+        const painB = settings.maxPainThresholdB ?? 50;
+        const doRamp = settings.ramping ?? false;
+
         switch (command.type) {
-            case 'strength':
-                if (command.channel === 'A') targetA = clamp(command.value, 0, 200);
-                else targetB = clamp(command.value, 0, 200);
+            case 'strength': {
+                const pain = command.channel === 'A' ? painA : painB;
+                const dest = clamp(command.value, 0, Math.min(200, pain));
+                if (command.channel === 'A') {
+                    if (doRamp) rampChannelA(dest);
+                    else targetA = dest;
+                } else {
+                    if (doRamp) rampChannelB(dest);
+                    else targetB = dest;
+                }
                 return true;
-            case 'pulse':
+            }
+            case 'pulse': {
                 const end = Date.now() + (command.timeSec || 5) * 1000;
                 if (command.channel === 'A') activeWaveformA = { preset: command.preset || 'gentle', startTime: Date.now(), endTime: end };
                 else activeWaveformB = { preset: command.preset || 'gentle', startTime: Date.now(), endTime: end };
                 return true;
-            case 'combo':
+            }
+            case 'combo': {
                 for (const act of (command.actions || [])) {
-                    if (act.channel === 'A') targetA = clamp(act.value, 0, 200);
-                    else if (act.channel === 'B') targetB = clamp(act.value, 0, 200);
+                    const pain = act.channel === 'A' ? painA : painB;
+                    const dest = clamp(act.value, 0, Math.min(200, pain));
+                    if (act.channel === 'A') {
+                        if (doRamp) rampChannelA(dest);
+                        else targetA = dest;
+                    } else if (act.channel === 'B') {
+                        if (doRamp) rampChannelB(dest);
+                        else targetB = dest;
+                    }
                 }
                 return true;
+            }
             case 'clear':
                 if (command.channel === 'A') { targetA = 0; activeWaveformA = null; }
                 else { targetB = 0; activeWaveformB = null; }
@@ -429,6 +482,8 @@ async function sendCoyoteCommand(command, silent = false) {
             case 'stop':
                 targetA = 0; targetB = 0;
                 activeWaveformA = null; activeWaveformB = null;
+                if (rampIntervalA) { clearInterval(rampIntervalA); rampIntervalA = null; }
+                if (rampIntervalB) { clearInterval(rampIntervalB); rampIntervalB = null; }
                 return true;
             default:
                 return false;
@@ -634,16 +689,19 @@ function generateDynamicPrompt() {
     const settings = extension_settings[MODULE_NAME];
     const limitA = settings.softLimitA || 100;
     const limitB = settings.softLimitB || 100;
+    const painA = settings.maxPainThresholdA ?? 50;
+    const painB = settings.maxPainThresholdB ?? 50;
     const guidelines = settings.guidelines || defaultSettings.guidelines;
 
     return `You can control the user's DG-LAB Coyote 3.0 e-stim device during this conversation:
 <coyote3>
 Channels: A (primary) and B (secondary)
-Soft Limits: A=${limitA}, B=${limitB} (never exceed without explicit consent)
+Soft Limits: A=${limitA}, B=${limitB}
+Pain Thresholds: A=${painA}, B=${painB} (never exceed without explicit consent)
 
 Strength Commands (use self-closing XML-style tags):
-<coyote3:channelA="X" time="Y"/> - Set Channel A to X (0-${limitA}) for Y seconds
-<coyote3:channelB="X" time="Y"/> - Set Channel B to X (0-${limitB}) for Y seconds
+<coyote3:channelA="X" time="Y"/> - Set Channel A to X (0-${painA}) for Y seconds
+<coyote3:channelB="X" time="Y"/> - Set Channel B to X (0-${painB}) for Y seconds
 <coyote3:a="X" time="Y"/> - Shorthand for Channel A
 <coyote3:b="X" time="Y"/> - Shorthand for Channel B
 
@@ -755,6 +813,13 @@ function loadSettings() {
     $('#coyote3_socket_url').val(settings.socketUrl || 'ws://localhost:9999');
     $('#coyote3_soft_limit_a').val(settings.softLimitA || 100);
     $('#coyote3_soft_limit_b').val(settings.softLimitB || 100);
+    $('#coyote3_pain_threshold_a').val(settings.maxPainThresholdA ?? 50);
+    $('#coyote3_pain_threshold_b').val(settings.maxPainThresholdB ?? 50);
+    $('#coyote3_freq_balance_a').val(settings.freqBalanceA ?? 160);
+    $('#coyote3_freq_balance_b').val(settings.freqBalanceB ?? 160);
+    $('#coyote3_intensity_balance_a').val(settings.intensityBalanceA ?? 0);
+    $('#coyote3_intensity_balance_b').val(settings.intensityBalanceB ?? 0);
+    $('#coyote3_ramping').prop('checked', settings.ramping ?? false);
     $('#coyote3_guidelines').val(settings.guidelines || defaultSettings.guidelines);
 
     // Show/hide sections based on mode
@@ -816,6 +881,53 @@ function setupUI() {
         saveSettingsDebounced();
         updatePrompt();
         if (bluetoothConnected) sendBFFrame();
+    });
+
+    $('#coyote3_pain_threshold_a').on('input', function () {
+        const val = parseInt($(this).val()) || 50;
+        extension_settings[MODULE_NAME].maxPainThresholdA = clamp(val, 0, 200);
+        saveSettingsDebounced();
+        updatePrompt();
+    });
+
+    $('#coyote3_pain_threshold_b').on('input', function () {
+        const val = parseInt($(this).val()) || 50;
+        extension_settings[MODULE_NAME].maxPainThresholdB = clamp(val, 0, 200);
+        saveSettingsDebounced();
+        updatePrompt();
+    });
+
+    $('#coyote3_freq_balance_a').on('input', function () {
+        const val = parseInt($(this).val()) || 160;
+        extension_settings[MODULE_NAME].freqBalanceA = clamp(val, 0, 255);
+        saveSettingsDebounced();
+        if (bluetoothConnected) sendBFFrame();
+    });
+
+    $('#coyote3_freq_balance_b').on('input', function () {
+        const val = parseInt($(this).val()) || 160;
+        extension_settings[MODULE_NAME].freqBalanceB = clamp(val, 0, 255);
+        saveSettingsDebounced();
+        if (bluetoothConnected) sendBFFrame();
+    });
+
+    $('#coyote3_intensity_balance_a').on('input', function () {
+        const val = parseInt($(this).val()) || 0;
+        extension_settings[MODULE_NAME].intensityBalanceA = clamp(val, 0, 255);
+        saveSettingsDebounced();
+        if (bluetoothConnected) sendBFFrame();
+    });
+
+    $('#coyote3_intensity_balance_b').on('input', function () {
+        const val = parseInt($(this).val()) || 0;
+        extension_settings[MODULE_NAME].intensityBalanceB = clamp(val, 0, 255);
+        saveSettingsDebounced();
+        if (bluetoothConnected) sendBFFrame();
+    });
+
+    $('#coyote3_ramping').on('change', function () {
+        extension_settings[MODULE_NAME].ramping = $(this).prop('checked');
+        saveSettingsDebounced();
     });
 
     $('#coyote3_guidelines').on('input', function () {

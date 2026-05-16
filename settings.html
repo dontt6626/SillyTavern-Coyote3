@@ -147,19 +147,64 @@
 
             <!-- Soft Limits -->
             <div id="coyote3_limits_section" style="margin-top: 10px;">
-                <h4 style="margin-top: 10px; margin-bottom: 5px;">Soft Limits</h4>
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">Safety Limits</h4>
+
                 <label for="coyote3_soft_limit_a" style="margin-bottom: 3px;">
-                    <b>Channel A Soft Limit (0-200)</b>
+                    <b>Soft Limit A (0-200)</b>
                 </label>
                 <input type="number" id="coyote3_soft_limit_a" class="text_pole" value="100" min="0" max="200" />
 
                 <label for="coyote3_soft_limit_b" style="margin-top: 10px; margin-bottom: 3px;">
-                    <b>Channel B Soft Limit (0-200)</b>
+                    <b>Soft Limit B (0-200)</b>
                 </label>
                 <input type="number" id="coyote3_soft_limit_b" class="text_pole" value="100" min="0" max="200" />
 
+                <label for="coyote3_pain_threshold_a" style="margin-top: 10px; margin-bottom: 3px;">
+                    <b>Pain Threshold A (0-200)</b>
+                </label>
+                <input type="number" id="coyote3_pain_threshold_a" class="text_pole" value="50" min="0" max="200" />
+
+                <label for="coyote3_pain_threshold_b" style="margin-top: 10px; margin-bottom: 3px;">
+                    <b>Pain Threshold B (0-200)</b>
+                </label>
+                <input type="number" id="coyote3_pain_threshold_b" class="text_pole" value="50" min="0" max="200" />
+
                 <small class="notes">
-                    The AI will be told these limits and instructed not to exceed them. The device firmware also enforces its own hard limits.
+                    Soft limits are sent to the device firmware. Pain thresholds are a software safety cap applied before any command is sent. The AI is told both values.
+                </small>
+            </div>
+
+            <!-- Balance & Ramping -->
+            <div id="coyote3_advanced_hw_section" style="margin-top: 10px;">
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">Hardware Tuning</h4>
+
+                <label for="coyote3_freq_balance_a" style="margin-bottom: 3px;">
+                    <b>Frequency Balance A (0-255)</b>
+                </label>
+                <input type="number" id="coyote3_freq_balance_a" class="text_pole" value="160" min="0" max="255" />
+
+                <label for="coyote3_freq_balance_b" style="margin-top: 10px; margin-bottom: 3px;">
+                    <b>Frequency Balance B (0-255)</b>
+                </label>
+                <input type="number" id="coyote3_freq_balance_b" class="text_pole" value="160" min="0" max="255" />
+
+                <label for="coyote3_intensity_balance_a" style="margin-top: 10px; margin-bottom: 3px;">
+                    <b>Intensity Balance A (0-255)</b>
+                </label>
+                <input type="number" id="coyote3_intensity_balance_a" class="text_pole" value="0" min="0" max="255" />
+
+                <label for="coyote3_intensity_balance_b" style="margin-top: 10px; margin-bottom: 3px;">
+                    <b>Intensity Balance B (0-255)</b>
+                </label>
+                <input type="number" id="coyote3_intensity_balance_b" class="text_pole" value="0" min="0" max="255" />
+
+                <label class="checkbox_label" for="coyote3_ramping" style="margin-top: 10px;">
+                    <input type="checkbox" id="coyote3_ramping" />
+                    <span>Enable Ramping (smooth intensity transitions)</span>
+                </label>
+
+                <small class="notes">
+                    Frequency balance controls relative sensation at fixed strength. Intensity balance widens pulse width for stronger low-frequency feel. Ramping smoothly steps intensity instead of jumping. Changes apply on next Bluetooth connection.
                 </small>
             </div>
 
