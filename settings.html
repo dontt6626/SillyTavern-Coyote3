@@ -1,0 +1,152 @@
+<div class="inline-drawer">
+    <div class="inline-drawer-toggle inline-drawer-header">
+        <b>Coyote 3.0 Control <span style="font-size: 0.8em; opacity: 0.7;">v1.0</span></b>
+        <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+    </div>
+    <div class="inline-drawer-content">
+        <div class="flex-container flexFlowColumn wide100p" style="gap: 10px;">
+            <!-- Enable/Disable Toggle -->
+            <label class="checkbox_label" for="coyote3_enabled">
+                <input type="checkbox" id="coyote3_enabled" />
+                <span>Enable Coyote 3.0 Control</span>
+            </label>
+
+            <small class="notes">
+                When enabled, the AI will be able to control your DG-LAB Coyote 3.0 e-stim device during chats.
+            </small>
+
+            <!-- Setup Instructions -->
+            <div class="coyote3_setup_instructions">
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">Setup Instructions</h4>
+                <ol style="margin-top: 5px; margin-bottom: 5px;">
+                    <li>Make sure your Coyote 3.0 device is powered on and paired to the DG-LAB app on your phone</li>
+                    <li>Run the DG-LAB socket server locally (or use a hosted one)</li>
+                    <li>Click <strong>"Connect to Socket Server"</strong> below</li>
+                    <li>Scan the QR code with the DG-LAB app (Game Mode / Socket)</li>
+                    <li>Wait for <strong>Status: Paired</strong></li>
+                    <li>Toggle <strong>"Enable Coyote 3.0 Control"</strong> above</li>
+                </ol>
+            </div>
+
+            <!-- Connection Section -->
+            <div id="coyote3_connection_section">
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">Device Connection</h4>
+
+                <div id="coyote3_status" class="coyote3_status disconnected">
+                    <strong>Status:</strong> <span id="coyote3_status_text">Not Connected</span>
+                </div>
+
+                <div class="coyote3_advanced_settings" style="margin-top: 10px;">
+                    <label for="coyote3_socket_url" style="margin-bottom: 3px;">
+                        <b>Socket Server URL</b>
+                    </label>
+                    <input type="text" id="coyote3_socket_url" class="text_pole" value="ws://localhost:9999" placeholder="ws://localhost:9999" />
+                    <small class="notes">
+                        Default: <code>ws://localhost:9999</code>. Change if your socket server runs on a different host or port.
+                    </small>
+                </div>
+
+                <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                    <button id="coyote3_connect_button" class="menu_button" style="flex: 1; min-width: 120px;">
+                        <i class="fa-solid fa-plug"></i> Connect to Socket Server
+                    </button>
+                    <button id="coyote3_disconnect_button" class="menu_button" style="flex: 1; min-width: 120px;">
+                        <i class="fa-solid fa-power-off"></i> Disconnect
+                    </button>
+                </div>
+
+                <!-- QR Code Display -->
+                <div id="coyote3_qr_section" style="display: none; margin-top: 10px;">
+                    <h4 style="margin-top: 10px; margin-bottom: 5px;">Pair with DG-LAB App</h4>
+                    <p class="notes">Scan this QR code in the DG-LAB app under Game Mode / Socket Control:</p>
+                    <div style="text-align: center; margin-top: 5px;">
+                        <img id="coyote3_qr_image" src="" alt="QR Code" style="display: none; max-width: 200px; border: 1px solid #ccc; border-radius: 8px;" />
+                    </div>
+                    <p class="notes" style="word-break: break-all; margin-top: 5px; font-size: 0.85em;">
+                        <code id="coyote3_qr_url"></code>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Live Stats -->
+            <div id="coyote3_controls_section" style="display: none; margin-top: 10px;">
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">Live Device Stats</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="coyote3_stat_box">
+                        <div class="coyote3_stat_label">Channel A</div>
+                        <div class="coyote3_stat_value" id="coyote3_channelA_value">0</div>
+                    </div>
+                    <div class="coyote3_stat_box">
+                        <div class="coyote3_stat_label">Channel B</div>
+                        <div class="coyote3_stat_value" id="coyote3_channelB_value">0</div>
+                    </div>
+                    <div class="coyote3_stat_box">
+                        <div class="coyote3_stat_label">Soft Limit A</div>
+                        <div class="coyote3_stat_value" id="coyote3_limitA_value">100</div>
+                    </div>
+                    <div class="coyote3_stat_box">
+                        <div class="coyote3_stat_label">Soft Limit B</div>
+                        <div class="coyote3_stat_value" id="coyote3_limitB_value">100</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Soft Limits -->
+            <div id="coyote3_limits_section" style="margin-top: 10px;">
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">Soft Limits</h4>
+                <label for="coyote3_soft_limit_a" style="margin-bottom: 3px;">
+                    <b>Channel A Soft Limit (0-200)</b>
+                </label>
+                <input type="number" id="coyote3_soft_limit_a" class="text_pole" value="100" min="0" max="200" />
+
+                <label for="coyote3_soft_limit_b" style="margin-top: 10px; margin-bottom: 3px;">
+                    <b>Channel B Soft Limit (0-200)</b>
+                </label>
+                <input type="number" id="coyote3_soft_limit_b" class="text_pole" value="100" min="0" max="200" />
+
+                <small class="notes">
+                    The AI will be told these limits and instructed not to exceed them. You can still manually override.
+                </small>
+            </div>
+
+            <!-- Guidelines Settings -->
+            <div id="coyote3_guidelines_section" style="margin-top: 10px;">
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">AI Guidelines</h4>
+
+                <label for="coyote3_guidelines" style="margin-bottom: 3px;">
+                    <b>Guidelines for AI</b>
+                </label>
+                <textarea id="coyote3_guidelines" class="text_pole textarea_compact" rows="4" placeholder="Enter guidelines for the AI..."></textarea>
+                <small class="notes">
+                    These guidelines tell the AI how to use the Coyote commands appropriately.
+                    <br>Changes are automatically included in the system prompt.
+                </small>
+
+                <button id="coyote3_reset_guidelines" class="menu_button" style="margin-top: 5px;">
+                    <i class="fa-solid fa-rotate-left"></i> Reset to Default Guidelines
+                </button>
+            </div>
+
+            <!-- Test Controls -->
+            <div id="coyote3_test_section" style="margin-top: 10px;">
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">Device Controls</h4>
+                <small class="notes">Manually control your Coyote 3.0 device:</small>
+
+                <div id="coyote3_test_controls" style="margin-top: 5px; display: flex; gap: 5px; flex-wrap: wrap;">
+                    <button id="coyote3_test_channelA" class="menu_button" style="flex: 1; min-width: 120px; white-space: nowrap;">
+                        <i class="fa-solid fa-bolt"></i> Test Channel A
+                    </button>
+                    <button id="coyote3_test_channelB" class="menu_button" style="flex: 1; min-width: 120px; white-space: nowrap;">
+                        <i class="fa-solid fa-bolt"></i> Test Channel B
+                    </button>
+                    <button id="coyote3_test_pulse" class="menu_button" style="flex: 1; min-width: 120px; white-space: nowrap;">
+                        <i class="fa-solid fa-wave-square"></i> Test Pulse
+                    </button>
+                    <button id="coyote3_stop_all" class="menu_button" style="flex: 1; min-width: 120px; white-space: nowrap; background-color: #d9534f; border-color: #d43f3a;">
+                        <i class="fa-solid fa-stop"></i> Stop All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
