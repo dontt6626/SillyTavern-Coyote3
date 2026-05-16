@@ -15,17 +15,52 @@
                 When enabled, the AI will be able to control your DG-LAB Coyote 3.0 e-stim device during chats.
             </small>
 
+            <!-- Connection Mode Selector -->
+            <div id="coyote3_mode_section" style="margin-top: 10px;">
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">Connection Mode</h4>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <label class="checkbox_label" style="flex: 1;">
+                        <input type="radio" name="coyote3_mode" value="bluetooth" checked />
+                        <span><i class="fa-brands fa-bluetooth-b"></i> Web Bluetooth (Direct)</span>
+                    </label>
+                    <label class="checkbox_label" style="flex: 1;">
+                        <input type="radio" name="coyote3_mode" value="socket" />
+                        <span><i class="fa-solid fa-server"></i> Socket Server (via Plugin)</span>
+                    </label>
+                </div>
+                <small class="notes">
+                    <strong>Web Bluetooth</strong>: Direct browser-to-device. Simplest setup. Requires Chrome/Edge and the device nearby.
+                    <br><strong>Socket Server</strong>: Uses a relay server + DG-LAB app. More complex but works remotely and doesn't require the browser to support Bluetooth.
+                </small>
+            </div>
+
             <!-- Setup Instructions -->
             <div class="coyote3_setup_instructions">
                 <h4 style="margin-top: 10px; margin-bottom: 5px;">Setup Instructions</h4>
-                <ol style="margin-top: 5px; margin-bottom: 5px;">
-                    <li>Make sure your Coyote 3.0 device is powered on and paired to the DG-LAB app on your phone</li>
-                    <li>Run the DG-LAB socket server locally (or use a hosted one)</li>
-                    <li>Click <strong>"Connect to Socket Server"</strong> below</li>
-                    <li>Scan the QR code with the DG-LAB app (Game Mode / Socket)</li>
-                    <li>Wait for <strong>Status: Paired</strong></li>
-                    <li>Toggle <strong>"Enable Coyote 3.0 Control"</strong> above</li>
-                </ol>
+
+                <div id="coyote3_bluetooth_instructions">
+                    <ol style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>Make sure your Coyote 3.0 device is powered on and nearby</li>
+                        <li>Use <strong>Chrome or Edge</strong> (Web Bluetooth is not supported in Firefox/Safari)</li>
+                        <li>Click <strong>"Pair with Device"</strong> below</li>
+                        <li>Select <strong>47L121000</strong> from the Bluetooth picker</li>
+                        <li>Wait for <strong>Status: Paired</strong></li>
+                        <li>Toggle <strong>"Enable Coyote 3.0 Control"</strong> above</li>
+                    </ol>
+                </div>
+
+                <div id="coyote3_socket_instructions" style="display: none;">
+                    <ol style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>Make sure your Coyote 3.0 device is powered on and paired to the DG-LAB app on your phone</li>
+                        <li>Run a DG-LAB socket server locally (or use a hosted one)</li>
+                        <li>Install the server plugin (<code>coyote3.mjs</code> into SillyTavern <code>plugins/</code> folder)</li>
+                        <li>Restart SillyTavern with <code>enableServerPlugins: true</code></li>
+                        <li>Click <strong>"Connect to Socket Server"</strong> below</li>
+                        <li>Scan the QR code with the DG-LAB app under Game Mode / Socket Control</li>
+                        <li>Wait for <strong>Status: Paired</strong></li>
+                        <li>Toggle <strong>"Enable Coyote 3.0 Control"</strong> above</li>
+                    </ol>
+                </div>
             </div>
 
             <!-- Connection Section -->
@@ -36,35 +71,50 @@
                     <strong>Status:</strong> <span id="coyote3_status_text">Not Connected</span>
                 </div>
 
-                <div class="coyote3_advanced_settings" style="margin-top: 10px;">
-                    <label for="coyote3_socket_url" style="margin-bottom: 3px;">
-                        <b>Socket Server URL</b>
-                    </label>
-                    <input type="text" id="coyote3_socket_url" class="text_pole" value="ws://localhost:9999" placeholder="ws://localhost:9999" />
-                    <small class="notes">
-                        Default: <code>ws://localhost:9999</code>. Change if your socket server runs on a different host or port.
-                    </small>
-                </div>
-
-                <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
-                    <button id="coyote3_connect_button" class="menu_button" style="flex: 1; min-width: 120px;">
-                        <i class="fa-solid fa-plug"></i> Connect to Socket Server
-                    </button>
-                    <button id="coyote3_disconnect_button" class="menu_button" style="flex: 1; min-width: 120px;">
-                        <i class="fa-solid fa-power-off"></i> Disconnect
-                    </button>
-                </div>
-
-                <!-- QR Code Display -->
-                <div id="coyote3_qr_section" style="display: none; margin-top: 10px;">
-                    <h4 style="margin-top: 10px; margin-bottom: 5px;">Pair with DG-LAB App</h4>
-                    <p class="notes">Scan this QR code in the DG-LAB app under Game Mode / Socket Control:</p>
-                    <div style="text-align: center; margin-top: 5px;">
-                        <img id="coyote3_qr_image" src="" alt="QR Code" style="display: none; max-width: 200px; border: 1px solid #ccc; border-radius: 8px;" />
+                <!-- Bluetooth Controls -->
+                <div id="coyote3_bluetooth_section">
+                    <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button id="coyote3_bluetooth_pair" class="menu_button" style="flex: 1; min-width: 120px;">
+                            <i class="fa-brands fa-bluetooth-b"></i> Pair with Device
+                        </button>
+                        <button id="coyote3_bluetooth_disconnect" class="menu_button" style="flex: 1; min-width: 120px;">
+                            <i class="fa-solid fa-power-off"></i> Disconnect
+                        </button>
                     </div>
-                    <p class="notes" style="word-break: break-all; margin-top: 5px; font-size: 0.85em;">
-                        <code id="coyote3_qr_url"></code>
-                    </p>
+                </div>
+
+                <!-- Socket Controls -->
+                <div id="coyote3_socket_section" style="display: none;">
+                    <div class="coyote3_advanced_settings" style="margin-top: 10px;">
+                        <label for="coyote3_socket_url" style="margin-bottom: 3px;">
+                            <b>Socket Server URL</b>
+                        </label>
+                        <input type="text" id="coyote3_socket_url" class="text_pole" value="ws://localhost:9999" placeholder="ws://localhost:9999" />
+                        <small class="notes">
+                            Default: <code>ws://localhost:9999</code>. Change if your socket server runs on a different host or port.
+                        </small>
+                    </div>
+
+                    <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button id="coyote3_connect_button" class="menu_button" style="flex: 1; min-width: 120px;">
+                            <i class="fa-solid fa-plug"></i> Connect to Socket Server
+                        </button>
+                        <button id="coyote3_disconnect_button" class="menu_button" style="flex: 1; min-width: 120px;">
+                            <i class="fa-solid fa-power-off"></i> Disconnect
+                        </button>
+                    </div>
+
+                    <!-- QR Code Display -->
+                    <div id="coyote3_qr_section" style="display: none; margin-top: 10px;">
+                        <h4 style="margin-top: 10px; margin-bottom: 5px;">Pair with DG-LAB App</h4>
+                        <p class="notes">Scan this QR code in the DG-LAB app under Game Mode / Socket Control:</p>
+                        <div style="text-align: center; margin-top: 5px;">
+                            <img id="coyote3_qr_image" src="" alt="QR Code" style="display: none; max-width: 200px; border: 1px solid #ccc; border-radius: 8px;" />
+                        </div>
+                        <p class="notes" style="word-break: break-all; margin-top: 5px; font-size: 0.85em;">
+                            <code id="coyote3_qr_url"></code>
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -88,6 +138,10 @@
                         <div class="coyote3_stat_label">Soft Limit B</div>
                         <div class="coyote3_stat_value" id="coyote3_limitB_value">100</div>
                     </div>
+                    <div class="coyote3_stat_box" id="coyote3_battery_row" style="display: none;">
+                        <div class="coyote3_stat_label">Battery</div>
+                        <div class="coyote3_stat_value" id="coyote3_battery_value">--</div>
+                    </div>
                 </div>
             </div>
 
@@ -105,7 +159,7 @@
                 <input type="number" id="coyote3_soft_limit_b" class="text_pole" value="100" min="0" max="200" />
 
                 <small class="notes">
-                    The AI will be told these limits and instructed not to exceed them. You can still manually override.
+                    The AI will be told these limits and instructed not to exceed them. The device firmware also enforces its own hard limits.
                 </small>
             </div>
 
