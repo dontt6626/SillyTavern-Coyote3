@@ -16,6 +16,7 @@ const EXTENSION_PROMPT_TAG = 'coyote3_control';
 
 // Bluetooth UUIDs
 const BT_SERVICE_UUID = '0000180c-0000-1000-8000-00805f9b34fb';
+const BT_BATTERY_SERVICE_UUID = '0000180a-0000-1000-8000-00805f9b34fb';
 const BT_WRITE_CHAR_UUID = '0000150a-0000-1000-8000-00805f9b34fb';
 const BT_NOTIFY_CHAR_UUID = '0000150b-0000-1000-8000-00805f9b34fb';
 const BT_BATTERY_CHAR_UUID = '00001500-0000-1000-8000-00805f9b34fb';
@@ -128,7 +129,7 @@ async function connectBluetooth() {
         toastr.info('Opening Bluetooth device picker...');
         btDevice = await navigator.bluetooth.requestDevice({
             filters: [{ name: BT_DEVICE_NAME }],
-            optionalServices: [BT_SERVICE_UUID],
+            optionalServices: [BT_SERVICE_UUID, BT_BATTERY_SERVICE_UUID],
         });
 
         btDevice.addEventListener('gattserverdisconnected', onBluetoothDisconnected);
@@ -138,16 +139,19 @@ async function connectBluetooth() {
 
         btWriteChar = await service.getCharacteristic(BT_WRITE_CHAR_UUID);
         btNotifyChar = await service.getCharacteristic(BT_NOTIFY_CHAR_UUID);
-        btBatteryChar = await service.getCharacteristic(BT_BATTERY_CHAR_UUID);
 
         await btNotifyChar.startNotifications();
         btNotifyChar.addEventListener('characteristicvaluechanged', onBluetoothNotify);
 
-        // Read battery once
+        // Battery is on a separate service (0x180A) — make it fully optional
         try {
+            const batteryService = await btServer.getPrimaryService(BT_BATTERY_SERVICE_UUID);
+            btBatteryChar = await batteryService.getCharacteristic(BT_BATTERY_CHAR_UUID);
             const val = await btBatteryChar.readValue();
             currentBattery = val.getUint8(0);
         } catch (e) {
+            console.log('[Coyote3] Battery service not available:', e.message);
+            btBatteryChar = null;
             currentBattery = null;
         }
 
