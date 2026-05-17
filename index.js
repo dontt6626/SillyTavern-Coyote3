@@ -24,31 +24,33 @@ const BT_DEVICE_NAME = '47L121000';
 
 // Preset waveform definitions
 // Each entry is an 8-byte hex string: 4 freq bytes + 4 strength bytes (covers 100ms)
+// Frequencies are on the wire scale (10-240), which maps to roughly 10-1000Hz actual.
+// Old presets used 10-30Hz (too weak/thumpy). Updated to 180-240 wire (~500-1000Hz).
 const WAVEFORM_PRESETS = {
     gentle: [
-        '0A0A0A0A32323232','0A0A0A0A32323232','0A0A0A0A32323232','0A0A0A0A32323232',
-        '0A0A0A0A32323232','0A0A0A0A32323232','0A0A0A0A32323232','0A0A0A0A32323232',
-        '0A0A0A0A32323232','0A0A0A0A32323232',
+        '7878787832323232','7878787832323232','7878787832323232','7878787832323232',
+        '7878787832323232','7878787832323232','7878787832323232','7878787832323232',
+        '7878787832323232','7878787832323232',
     ],
     pulse: [
-        '1414141464646464','1414141464646464','1414141400000000','1414141400000000',
-        '1414141464646464','1414141464646464','1414141400000000','1414141400000000',
-        '1414141464646464','1414141464646464',
+        'B4B4B4B464646464','B4B4B4B464646464','B4B4B4B400000000','B4B4B4B400000000',
+        'B4B4B4B464646464','B4B4B4B464646464','B4B4B4B400000000','B4B4B4B400000000',
+        'B4B4B4B464646464','B4B4B4B464646464',
     ],
     wave: [
-        '0A0A0A0A1E1E1E1E','0A0A0A0A32323232','0A0A0A0A46464646','0A0A0A0A5A5A5A5A',
-        '0A0A0A0A6E6E6E6E','0A0A0A0A5A5A5A5A','0A0A0A0A46464646','0A0A0A0A32323232',
-        '0A0A0A0A1E1E1E1E','0A0A0A0A0A0A0A0A',
+        '787878781E1E1E1E','7878787832323232','7878787846464646','787878785A5A5A5A',
+        '787878786E6E6E6E','787878785A5A5A5A','7878787846464646','7878787832323232',
+        '787878781E1E1E1E','787878780A0A0A0A',
     ],
     intense: [
-        '1E1E1E1E64646464','1E1E1E1E64646464','1E1E1E1E64646464','1E1E1E1E64646464',
-        '1E1E1E1E64646464','1E1E1E1E64646464','1E1E1E1E64646464','1E1E1E1E64646464',
-        '1E1E1E1E64646464','1E1E1E1E64646464',
+        'DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464',
+        'DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464',
+        'DCDCDCDC64646464','DCDCDCDC64646464',
     ],
     tease: [
-        '0A0A0A0A1E1E1E1E','0A0A0A0A3C3C3C3C','0A0A0A0A0A0A0A0A','0A0A0A0A50505050',
-        '0A0A0A0A0A0A0A0A','0A0A0A0A3C3C3C3C','0A0A0A0A1E1E1E1E','0A0A0A0A0A0A0A0A',
-        '0A0A0A0A50505050','0A0A0A0A1E1E1E1E',
+        'B4B4B4B41E1E1E1E','B4B4B4B43C3C3C3C','B4B4B4B40A0A0A0A','B4B4B4B450505050',
+        'B4B4B4B40A0A0A0A','B4B4B4B43C3C3C3C','B4B4B4B41E1E1E1E','B4B4B4B40A0A0A0A',
+        'B4B4B4B450505050','B4B4B4B41E1E1E1E',
     ],
 };
 
@@ -80,7 +82,6 @@ let btServer = null;
 let btWriteChar = null;
 let btNotifyChar = null;
 let btBatteryChar = null;
-let b0Sequence = 0;
 let b0Timer = null;
 let bluetoothConnected = false;
 
@@ -240,13 +241,13 @@ async function sendBFFrame() {
 
 async function sendB0Frame() {
     if (!btWriteChar) return;
-    const settings = extension_settings[MODULE_NAME];
     const now = Date.now();
 
     const buf = new Uint8Array(20);
-    const seq = b0Sequence % 16;
+    // Sequence ID 0 = no acknowledgment required. Non-zero IDs expect a B1 echo,
+    // which we don't wait for, so the device can ignore subsequent changes.
+    const seq = 0;
     const parseMode = 0xF; // absolute for both A and B
-    b0Sequence++;
 
     buf[0] = 0xB0;
     buf[1] = (seq << 4) | parseMode;
@@ -255,11 +256,16 @@ async function sendB0Frame() {
     let aIntensity = clamp(targetA, 0, 200);
     let bIntensity = clamp(targetB, 0, 200);
 
-    // Channel A waveform or flat
-    // For flat output, slot strengths should be 100 so the full intensity operand is delivered.
-    // Frequencies at 50 provide a mid-range continuous sensation instead of 10Hz thumping.
-    let aFreqs = [50, 50, 50, 50];
-    let aStrengths = [100, 100, 100, 100];
+    // Flat mode defaults: higher frequency (~500Hz wire value 180) for a continuous
+    // buzz instead of a thumpy 10Hz pulse. Slot strengths = 100 when active so the
+    // full intensity operand is delivered, but 0 when intensity is 0 so the channel
+    // LED does not flash and the device treats it as genuinely off.
+    const flatFreq = 180;
+    const aFlatStr = aIntensity > 0 ? 100 : 0;
+    const bFlatStr = bIntensity > 0 ? 100 : 0;
+
+    let aFreqs = [flatFreq, flatFreq, flatFreq, flatFreq];
+    let aStrengths = [aFlatStr, aFlatStr, aFlatStr, aFlatStr];
 
     if (activeWaveformA && now < activeWaveformA.endTime) {
         const preset = WAVEFORM_PRESETS[activeWaveformA.preset];
@@ -276,8 +282,8 @@ async function sendB0Frame() {
     }
 
     // Channel B waveform or flat
-    let bFreqs = [50, 50, 50, 50];
-    let bStrengths = [100, 100, 100, 100];
+    let bFreqs = [flatFreq, flatFreq, flatFreq, flatFreq];
+    let bStrengths = [bFlatStr, bFlatStr, bFlatStr, bFlatStr];
 
     if (activeWaveformB && now < activeWaveformB.endTime) {
         const preset = WAVEFORM_PRESETS[activeWaveformB.preset];
@@ -490,6 +496,7 @@ async function sendCoyoteCommand(command, silent = false) {
                 activeWaveformA = null; activeWaveformB = null;
                 if (rampIntervalA) { clearInterval(rampIntervalA); rampIntervalA = null; }
                 if (rampIntervalB) { clearInterval(rampIntervalB); rampIntervalB = null; }
+                if (b0Timer) { clearInterval(b0Timer); b0Timer = null; }
                 return true;
             default:
                 return false;
@@ -628,6 +635,10 @@ function stopLoopingCommands() {
         loopInterval = null;
     }
     currentLoopIndex = 0;
+    if (b0Timer) {
+        clearInterval(b0Timer);
+        b0Timer = null;
+    }
     const settings = extension_settings[MODULE_NAME];
     if (settings.connected && settings.paired) {
         sendCoyoteCommand({ type: 'clear', channel: 'A' }, true);
