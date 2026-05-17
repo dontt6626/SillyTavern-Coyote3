@@ -256,8 +256,10 @@ async function sendB0Frame() {
     let bIntensity = clamp(targetB, 0, 200);
 
     // Channel A waveform or flat
-    let aFreqs = [10, 10, 10, 10];
-    let aStrengths = [clamp(aIntensity, 0, 100), clamp(aIntensity, 0, 100), clamp(aIntensity, 0, 100), clamp(aIntensity, 0, 100)];
+    // For flat output, slot strengths should be 100 so the full intensity operand is delivered.
+    // Frequencies at 50 provide a mid-range continuous sensation instead of 10Hz thumping.
+    let aFreqs = [50, 50, 50, 50];
+    let aStrengths = [100, 100, 100, 100];
 
     if (activeWaveformA && now < activeWaveformA.endTime) {
         const preset = WAVEFORM_PRESETS[activeWaveformA.preset];
@@ -274,8 +276,8 @@ async function sendB0Frame() {
     }
 
     // Channel B waveform or flat
-    let bFreqs = [10, 10, 10, 10];
-    let bStrengths = [clamp(bIntensity, 0, 100), clamp(bIntensity, 0, 100), clamp(bIntensity, 0, 100), clamp(bIntensity, 0, 100)];
+    let bFreqs = [50, 50, 50, 50];
+    let bStrengths = [100, 100, 100, 100];
 
     if (activeWaveformB && now < activeWaveformB.endTime) {
         const preset = WAVEFORM_PRESETS[activeWaveformB.preset];
