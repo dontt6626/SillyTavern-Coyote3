@@ -229,17 +229,42 @@
             <!-- Test Controls -->
             <div id="coyote3_test_section" style="margin-top: 10px;">
                 <h4 style="margin-top: 10px; margin-bottom: 5px;">Device Controls</h4>
-                <small class="notes">Manually control your Coyote 3.0 device:</small>
+                <small class="notes">Send sustained output until you click Stop All:</small>
 
-                <div id="coyote3_test_controls" style="margin-top: 5px; display: flex; gap: 5px; flex-wrap: wrap;">
-                    <button id="coyote3_test_channelA" class="menu_button" style="flex: 1; min-width: 120px; white-space: nowrap;">
-                        <i class="fa-solid fa-bolt"></i> Test Channel A
-                    </button>
-                    <button id="coyote3_test_channelB" class="menu_button" style="flex: 1; min-width: 120px; white-space: nowrap;">
-                        <i class="fa-solid fa-bolt"></i> Test Channel B
-                    </button>
+                <div style="margin-top: 5px;">
+                    <b>Channel A Quick Tests</b>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-top: 3px;">
+                        <button class="menu_button coyote3-test-a" data-value="10" style="flex: 1; min-width: 60px;">10</button>
+                        <button class="menu_button coyote3-test-a" data-value="25" style="flex: 1; min-width: 60px;">25</button>
+                        <button class="menu_button coyote3-test-a" data-value="50" style="flex: 1; min-width: 60px;">50</button>
+                        <button class="menu_button coyote3-test-a" data-value="100" style="flex: 1; min-width: 60px;">100</button>
+                        <button class="menu_button coyote3-test-a" data-value="150" style="flex: 1; min-width: 60px;">150</button>
+                        <button class="menu_button coyote3-test-a" data-value="200" style="flex: 1; min-width: 60px;">MAX</button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 8px;">
+                    <b>Channel B Quick Tests</b>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-top: 3px;">
+                        <button class="menu_button coyote3-test-b" data-value="10" style="flex: 1; min-width: 60px;">10</button>
+                        <button class="menu_button coyote3-test-b" data-value="25" style="flex: 1; min-width: 60px;">25</button>
+                        <button class="menu_button coyote3-test-b" data-value="50" style="flex: 1; min-width: 60px;">50</button>
+                        <button class="menu_button coyote3-test-b" data-value="100" style="flex: 1; min-width: 60px;">100</button>
+                        <button class="menu_button coyote3-test-b" data-value="150" style="flex: 1; min-width: 60px;">150</button>
+                        <button class="menu_button coyote3-test-b" data-value="200" style="flex: 1; min-width: 60px;">MAX</button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 8px; display: flex; gap: 5px; align-items: center;">
+                    <label><b>Custom:</b></label>
+                    <input type="number" id="coyote3_custom_value" class="text_pole" value="50" min="0" max="200" style="width: 70px;" />
+                    <button id="coyote3_custom_a" class="menu_button">Send A</button>
+                    <button id="coyote3_custom_b" class="menu_button">Send B</button>
+                </div>
+
+                <div style="margin-top: 8px; display: flex; gap: 5px; flex-wrap: wrap;">
                     <button id="coyote3_test_pulse" class="menu_button" style="flex: 1; min-width: 120px; white-space: nowrap;">
-                        <i class="fa-solid fa-wave-square"></i> Test Pulse
+                        <i class="fa-solid fa-wave-square"></i> Test Pulse (A)
                     </button>
                     <button id="coyote3_stop_all" class="menu_button" style="flex: 1; min-width: 120px; white-space: nowrap; background-color: #d9534f; border-color: #d43f3a;">
                         <i class="fa-solid fa-stop"></i> Stop All

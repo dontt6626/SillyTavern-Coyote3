@@ -983,20 +983,37 @@ function setupUI() {
         toastr.info('Socket disconnected');
     });
 
-    // Test controls
-    $('#coyote3_test_channelA').on('click', async function () {
-        await sendCoyoteCommand({ type: 'strength', channel: 'A', value: 50, timeSec: 3 });
-        toastr.info('Sent Channel A = 50 (3 seconds)');
+    // Quick test buttons (Channel A)
+    $('.coyote3-test-a').on('click', async function () {
+        const val = parseInt($(this).data('value'));
+        await sendCoyoteCommand({ type: 'strength', channel: 'A', value: val });
+        toastr.info(`Channel A sustained at ${val}`);
     });
 
-    $('#coyote3_test_channelB').on('click', async function () {
-        await sendCoyoteCommand({ type: 'strength', channel: 'B', value: 50, timeSec: 3 });
-        toastr.info('Sent Channel B = 50 (3 seconds)');
+    // Quick test buttons (Channel B)
+    $('.coyote3-test-b').on('click', async function () {
+        const val = parseInt($(this).data('value'));
+        await sendCoyoteCommand({ type: 'strength', channel: 'B', value: val });
+        toastr.info(`Channel B sustained at ${val}`);
+    });
+
+    // Custom value test
+    $('#coyote3_custom_a').on('click', async function () {
+        const val = parseInt($('#coyote3_custom_value').val()) || 0;
+        await sendCoyoteCommand({ type: 'strength', channel: 'A', value: val });
+        toastr.info(`Channel A sustained at ${val}`);
+    });
+
+    $('#coyote3_custom_b').on('click', async function () {
+        const val = parseInt($('#coyote3_custom_value').val()) || 0;
+        await sendCoyoteCommand({ type: 'strength', channel: 'B', value: val });
+        toastr.info(`Channel B sustained at ${val}`);
     });
 
     $('#coyote3_test_pulse').on('click', async function () {
-        await sendCoyoteCommand({ type: 'pulse', channel: 'A', preset: 'pulse', timeSec: 3 });
-        toastr.info('Sent pulse pattern to Channel A (3 seconds)');
+        const val = parseInt($('#coyote3_custom_value').val()) || 50;
+        await sendCoyoteCommand({ type: 'pulse', channel: 'A', preset: 'intense', timeSec: 3 });
+        toastr.info(`Sent intense pulse to Channel A (3 seconds) at base intensity ${val}`);
     });
 
     $('#coyote3_stop_all').on('click', async function () {
