@@ -308,6 +308,11 @@ Uses the [DG-LAB Socket Control Protocol v2](https://github.com/DG-LAB-OPENSOURC
 - Uses the [DG-LAB Open Source Bluetooth Protocol v3](https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE/tree/main/coyote/v3) and [Socket Protocol v2](https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE/tree/main/socket/v2)
 - Inspired by the [SillyTavern-Lovense](https://github.com/SpicyMarinara/SillyTavern-Lovense) extension architecture
 - [Web Bluetooth API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API) for direct browser-to-device control
+- Web Bluetooth implementation informed by [eu.daimonia.app](https://eu.daimonia.app/FAQ) — thank you for the protocol reference and hardware tuning insights
+
+## License
+
+This extension is provided as-is under the MIT License. See the repository for details.
 
 ## Disclaimer
 
