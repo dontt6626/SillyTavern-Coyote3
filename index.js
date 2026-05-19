@@ -33,9 +33,9 @@ const WAVEFORM_PRESETS = {
         '7878787832323232','7878787832323232',
     ],
     pulse: [
-        'B4B4B4B464646464','B4B4B4B464646464','B4B4B4B400000000','B4B4B4B400000000',
-        'B4B4B4B464646464','B4B4B4B464646464','B4B4B4B400000000','B4B4B4B400000000',
-        'B4B4B4B464646464','B4B4B4B464646464',
+        'B4B4B4B4FFFFFFFF','B4B4B4B4FFFFFFFF','B4B4B4B400000000','B4B4B4B400000000',
+        'B4B4B4B4FFFFFFFF','B4B4B4B4FFFFFFFF','B4B4B4B400000000','B4B4B4B400000000',
+        'B4B4B4B4FFFFFFFF','B4B4B4B4FFFFFFFF',
     ],
     wave: [
         '787878781E1E1E1E','7878787832323232','7878787846464646','787878785A5A5A5A',
@@ -43,9 +43,9 @@ const WAVEFORM_PRESETS = {
         '787878781E1E1E1E','787878780A0A0A0A',
     ],
     intense: [
-        'DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464',
-        'DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464',
-        'DCDCDCDC64646464','DCDCDCDC64646464',
+        'DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF',
+        'DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF',
+        'DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF',
     ],
     tease: [
         'B4B4B4B41E1E1E1E','B4B4B4B43C3C3C3C','B4B4B4B40A0A0A0A','B4B4B4B450505050',
@@ -66,8 +66,8 @@ const defaultSettings = {
     maxPainThresholdB: 50,
     freqBalanceA: 160,
     freqBalanceB: 160,
-    intensityBalanceA: 0,
-    intensityBalanceB: 0,
+    intensityBalanceA: 200,
+    intensityBalanceB: 200,
     ramping: false,
     guidelines: `1. Match intensity to context: gentle (1-50), moderate (51-120), intense (121-200)
 2. Use commands that fit the scene naturally
@@ -244,25 +244,23 @@ async function sendB0Frame() {
     const now = Date.now();
 
     const buf = new Uint8Array(20);
-    // Sequence ID 0 = no acknowledgment required. Non-zero IDs expect a B1 echo,
-    // which we don't wait for, so the device can ignore subsequent changes.
-    const seq = 0;
-    const parseMode = 0xF; // absolute for both A and B
-
+    // Mode byte: both channels in mode 1 (absolute). Using 0x11 ensures both
+    // nibbles are non-zero regardless of whether high nibble = A or B.
+    // Earlier 0x0F left one nibble at 0, which some firmware treats as off/relative.
     buf[0] = 0xB0;
-    buf[1] = (seq << 4) | parseMode;
+    buf[1] = 0x11;
 
     // Determine channel intensities and slot values
     let aIntensity = clamp(targetA, 0, 200);
     let bIntensity = clamp(targetB, 0, 200);
 
-    // Flat mode defaults: higher frequency (~500Hz wire value 180) for a continuous
-    // buzz instead of a thumpy 10Hz pulse. Slot strengths = 100 when active so the
-    // full intensity operand is delivered, but 0 when intensity is 0 so the channel
-    // LED does not flash and the device treats it as genuinely off.
-    const flatFreq = 180;
-    const aFlatStr = aIntensity > 0 ? 100 : 0;
-    const bFlatStr = bIntensity > 0 ? 100 : 0;
+    // Flat mode: max frequency and slot strength for strongest continuous output.
+    // Earlier versions used 100 for slot strength and 180 for freq, which felt weak.
+    // The device firmware appears to accept 0-255 for slot strength; 255 gives
+    // ~2.5x more power than 100. Frequency 240 is the max on the wire scale.
+    const flatFreq = 240;
+    const aFlatStr = aIntensity > 0 ? 255 : 0;
+    const bFlatStr = bIntensity > 0 ? 255 : 0;
 
     let aFreqs = [flatFreq, flatFreq, flatFreq, flatFreq];
     let aStrengths = [aFlatStr, aFlatStr, aFlatStr, aFlatStr];
@@ -308,6 +306,12 @@ async function sendB0Frame() {
 
     try {
         await btWriteChar.writeValue(buf);
+        // Debug: log the full B0 frame once every 5 seconds to avoid spam
+        if (!window._coyote3_lastB0Log || (now - window._coyote3_lastB0Log > 5000)) {
+            const hex = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join(' ');
+            console.log('[Coyote3] B0 frame:', hex, '| A=', aIntensity, 'B=', bIntensity, 'mode=0x11');
+            window._coyote3_lastB0Log = now;
+        }
     } catch (e) {
         // Write errors usually mean disconnected
         console.error('[Coyote3] B0 write error:', e);
@@ -449,6 +453,10 @@ async function sendCoyoteCommand(command, silent = false) {
         if (!bluetoothConnected) {
             if (!silent) console.warn('[Coyote3] Bluetooth not connected');
             return false;
+        }
+        // Ensure B0 loop is running (it may have been stopped by a prior stop command)
+        if (!b0Timer) {
+            b0Timer = setInterval(sendB0Frame, 100);
         }
         const painA = settings.maxPainThresholdA ?? 50;
         const painB = settings.maxPainThresholdB ?? 50;
