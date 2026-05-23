@@ -33,9 +33,9 @@ const WAVEFORM_PRESETS = {
         '7878787832323232','7878787832323232',
     ],
     pulse: [
-        'B4B4B4B4FFFFFFFF','B4B4B4B4FFFFFFFF','B4B4B4B400000000','B4B4B4B400000000',
-        'B4B4B4B4FFFFFFFF','B4B4B4B4FFFFFFFF','B4B4B4B400000000','B4B4B4B400000000',
-        'B4B4B4B4FFFFFFFF','B4B4B4B4FFFFFFFF',
+        'B4B4B4B464646464','B4B4B4B464646464','B4B4B4B400000000','B4B4B4B400000000',
+        'B4B4B4B464646464','B4B4B4B464646464','B4B4B4B400000000','B4B4B4B400000000',
+        'B4B4B4B464646464','B4B4B4B464646464',
     ],
     wave: [
         '787878781E1E1E1E','7878787832323232','7878787846464646','787878785A5A5A5A',
@@ -43,9 +43,9 @@ const WAVEFORM_PRESETS = {
         '787878781E1E1E1E','787878780A0A0A0A',
     ],
     intense: [
-        'DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF',
-        'DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF',
-        'DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF',
+        'DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464',
+        'DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464',
+        'DCDCDCDC64646464','DCDCDCDC64646464',
     ],
     tease: [
         'B4B4B4B41E1E1E1E','B4B4B4B43C3C3C3C','B4B4B4B40A0A0A0A','B4B4B4B450505050',
@@ -254,13 +254,12 @@ async function sendB0Frame() {
     let aIntensity = clamp(targetA, 0, 200);
     let bIntensity = clamp(targetB, 0, 200);
 
-    // Flat mode: max frequency and slot strength for strongest continuous output.
-    // Earlier versions used 100 for slot strength and 180 for freq, which felt weak.
-    // The device firmware appears to accept 0-255 for slot strength; 255 gives
-    // ~2.5x more power than 100. Frequency 240 is the max on the wire scale.
+    // Per DG-LAB v3 protocol, per-slot waveform intensities are 0-100.
+    // Values above 100 cause the firmware to discard the entire channel waveform.
+    // Scale flat-mode slot strength proportionally with channel intensity.
     const flatFreq = 240;
-    const aFlatStr = aIntensity > 0 ? 255 : 0;
-    const bFlatStr = bIntensity > 0 ? 255 : 0;
+    const aFlatStr = Math.min(aIntensity, 100);
+    const bFlatStr = Math.min(bIntensity, 100);
 
     let aFreqs = [flatFreq, flatFreq, flatFreq, flatFreq];
     let aStrengths = [aFlatStr, aFlatStr, aFlatStr, aFlatStr];
