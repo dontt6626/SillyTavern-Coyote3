@@ -39,7 +39,7 @@ const WAVEFORM_PRESETS = {
     ],
     wave: [
         '787878781E1E1E1E','7878787832323232','7878787846464646','787878785A5A5A5A',
-        '787878786E6E6E6E','787878785A5A5A5A','7878787846464646','7878787832323232',
+        '7878787864646464','787878785A5A5A5A','7878787846464646','7878787832323232',
         '787878781E1E1E1E','787878780A0A0A0A',
     ],
     intense: [
@@ -84,6 +84,7 @@ let btNotifyChar = null;
 let btBatteryChar = null;
 let b0Timer = null;
 let bluetoothConnected = false;
+let b0Serial = 0; // 4-bit B0 frame serial (0-15), echoed in B1 feedback
 
 // Runtime targets for B0 loop
 let targetA = 0;
@@ -244,22 +245,28 @@ async function sendB0Frame() {
     const now = Date.now();
 
     const buf = new Uint8Array(20);
-    // Mode byte: both channels in mode 1 (absolute). Using 0x11 ensures both
-    // nibbles are non-zero regardless of whether high nibble = A or B.
-    // Earlier 0x0F left one nibble at 0, which some firmware treats as off/relative.
-    buf[0] = 0xB0;
-    buf[1] = 0x11;
 
-    // Determine channel intensities and slot values
+    // DG-LAB v3 B0 frame: buf[0] = command (0xB0)
+    // buf[1] = 4-bit serial (0-15) + 4-bit intensity mode (1 = absolute)
+    // Serial increments per frame and is echoed in B1 feedback.
+    const serial = b0Serial % 16;
+    const mode = 1; // absolute intensity
+    buf[0] = 0xB0;
+    buf[1] = (serial << 4) | mode;
+    b0Serial++;
+
+    // Channel intensities (0-200). Soft limits are enforced by firmware via BF frame;
+    // the values written here are the raw requested levels.
     let aIntensity = clamp(targetA, 0, 200);
     let bIntensity = clamp(targetB, 0, 200);
 
-    // Per DG-LAB v3 protocol, per-slot waveform intensities are 0-100.
-    // Values above 100 cause the firmware to discard the entire channel waveform.
-    // Scale flat-mode slot strength proportionally with channel intensity.
+    // Per-slot waveform intensities must be 0-100. Values above 100 cause the
+    // firmware to discard the entire 4-group waveform for that channel.
+    // Flat mode uses max valid slot strength (100) so the waveform contributes
+    // fully; the intensity byte then governs the overall channel level.
     const flatFreq = 240;
-    const aFlatStr = Math.min(aIntensity, 100);
-    const bFlatStr = Math.min(bIntensity, 100);
+    const aFlatStr = aIntensity > 0 ? 100 : 0;
+    const bFlatStr = bIntensity > 0 ? 100 : 0;
 
     let aFreqs = [flatFreq, flatFreq, flatFreq, flatFreq];
     let aStrengths = [aFlatStr, aFlatStr, aFlatStr, aFlatStr];
@@ -305,14 +312,12 @@ async function sendB0Frame() {
 
     try {
         await btWriteChar.writeValue(buf);
-        // Debug: log the full B0 frame once every 5 seconds to avoid spam
         if (!window._coyote3_lastB0Log || (now - window._coyote3_lastB0Log > 5000)) {
             const hex = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join(' ');
-            console.log('[Coyote3] B0 frame:', hex, '| A=', aIntensity, 'B=', bIntensity, 'mode=0x11');
+            console.log('[Coyote3] B0 frame:', hex, '| serial=', serial, '| A=', aIntensity, 'B=', bIntensity);
             window._coyote3_lastB0Log = now;
         }
     } catch (e) {
-        // Write errors usually mean disconnected
         console.error('[Coyote3] B0 write error:', e);
     }
 }
