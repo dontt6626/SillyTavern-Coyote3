@@ -145,6 +145,27 @@
                 </div>
             </div>
 
+            <!-- Volume -->
+            <div id="coyote3_volume_section" style="margin-top: 10px;">
+                <h4 style="margin-top: 10px; margin-bottom: 5px;">Output Volume</h4>
+
+                <label for="coyote3_volume_a" style="margin-bottom: 3px;">
+                    <b>Channel A Volume (0-100%)</b>
+                </label>
+                <input type="range" id="coyote3_volume_a" min="0" max="100" value="100" style="width: 100%;" />
+                <span id="coyote3_volume_a_display" class="notes" style="display: block; text-align: right;">100%</span>
+
+                <label for="coyote3_volume_b" style="margin-top: 10px; margin-bottom: 3px;">
+                    <b>Channel B Volume (0-100%)</b>
+                </label>
+                <input type="range" id="coyote3_volume_b" min="0" max="100" value="100" style="width: 100%;" />
+                <span id="coyote3_volume_b_display" class="notes" style="display: block; text-align: right;">100%</span>
+
+                <small class="notes">
+                    Scales all output proportionally — like a volume knob. AI commands and test buttons are multiplied by this percentage before reaching the device. Set to 30% for gentle pleasure, 100% for full range.
+                </small>
+            </div>
+
             <!-- Soft Limits -->
             <div id="coyote3_limits_section" style="margin-top: 10px;">
                 <h4 style="margin-top: 10px; margin-bottom: 5px;">Safety Limits</h4>
