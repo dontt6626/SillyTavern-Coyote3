@@ -248,14 +248,12 @@ async function sendB0Frame() {
 
     const buf = new Uint8Array(20);
 
-    // DG-LAB v3 B0 frame: buf[0] = command (0xB0)
-    // buf[1] = 4-bit serial (0-15) + 4-bit intensity mode (1 = absolute)
-    // Serial increments per frame and is echoed in B1 feedback.
-    const serial = b0Serial % 16;
-    const mode = 1; // absolute intensity
+    // buf[1] layout is ambiguous. The protocol doc says 4-bit serial + 4-bit mode,
+    // but real device behavior suggests it may be A-mode + B-mode. The original
+    // author used 0x11 (both nibbles = mode 1) and confirmed it works.
+    // Reverting to 0x11 until we can verify the actual firmware interpretation.
     buf[0] = 0xB0;
-    buf[1] = (serial << 4) | mode;
-    b0Serial++;
+    buf[1] = 0x11;
 
     // Channel intensities (0-200). Soft limits are enforced by firmware via BF frame.
     // Volume is a user-controlled 0-100% multiplier (like XToys' % slider).
@@ -319,7 +317,7 @@ async function sendB0Frame() {
         await btWriteChar.writeValue(buf);
         if (!window._coyote3_lastB0Log || (now - window._coyote3_lastB0Log > 5000)) {
             const hex = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join(' ');
-            console.log('[Coyote3] B0 frame:', hex, '| serial=', serial, '| A=', aIntensity, 'B=', bIntensity);
+            console.log('[Coyote3] B0 frame:', hex, '| A=', aIntensity, 'B=', bIntensity);
             window._coyote3_lastB0Log = now;
         }
     } catch (e) {
