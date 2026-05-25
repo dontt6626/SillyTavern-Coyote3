@@ -33,19 +33,19 @@ const WAVEFORM_PRESETS = {
         '7878787832323232','7878787832323232',
     ],
     pulse: [
-        'B4B4B4B464646464','B4B4B4B464646464','B4B4B4B400000000','B4B4B4B400000000',
-        'B4B4B4B464646464','B4B4B4B464646464','B4B4B4B400000000','B4B4B4B400000000',
-        'B4B4B4B464646464','B4B4B4B464646464',
+        'B4B4B4B4FFFFFFFF','B4B4B4B4FFFFFFFF','B4B4B4B400000000','B4B4B4B400000000',
+        'B4B4B4B4FFFFFFFF','B4B4B4B4FFFFFFFF','B4B4B4B400000000','B4B4B4B400000000',
+        'B4B4B4B4FFFFFFFF','B4B4B4B4FFFFFFFF',
     ],
     wave: [
         '787878781E1E1E1E','7878787832323232','7878787846464646','787878785A5A5A5A',
-        '7878787864646464','787878785A5A5A5A','7878787846464646','7878787832323232',
+        '787878786E6E6E6E','787878785A5A5A5A','7878787846464646','7878787832323232',
         '787878781E1E1E1E','787878780A0A0A0A',
     ],
     intense: [
-        'DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464',
-        'DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464','DCDCDCDC64646464',
-        'DCDCDCDC64646464','DCDCDCDC64646464',
+        'DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF',
+        'DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF',
+        'DCDCDCDCFFFFFFFF','DCDCDCDCFFFFFFFF',
     ],
     tease: [
         'B4B4B4B41E1E1E1E','B4B4B4B43C3C3C3C','B4B4B4B40A0A0A0A','B4B4B4B450505050',
@@ -263,13 +263,13 @@ async function sendB0Frame() {
     let aIntensity = clamp(Math.round(targetA * volA), 0, 200);
     let bIntensity = clamp(Math.round(targetB * volB), 0, 200);
 
-    // Per-slot waveform intensities must be 0-100. Values above 100 cause the
-    // firmware to discard the entire 4-group waveform for that channel.
-    // Flat mode uses max valid slot strength (100) so the waveform contributes
-    // fully; the intensity byte then governs the overall channel level.
+    // Flat mode: use max slot strength for strongest continuous output.
+    // The English protocol docs claim 0-100, but empirical testing shows the
+    // device firmware accepts 0-255 and scales output proportionally.
+    // Values above 100 are NOT discarded; they produce stronger output.
     const flatFreq = 240;
-    const aFlatStr = aIntensity > 0 ? 100 : 0;
-    const bFlatStr = bIntensity > 0 ? 100 : 0;
+    const aFlatStr = aIntensity > 0 ? 255 : 0;
+    const bFlatStr = bIntensity > 0 ? 255 : 0;
 
     let aFreqs = [flatFreq, flatFreq, flatFreq, flatFreq];
     let aStrengths = [aFlatStr, aFlatStr, aFlatStr, aFlatStr];
