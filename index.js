@@ -248,12 +248,11 @@ async function sendB0Frame() {
 
     const buf = new Uint8Array(20);
 
-    // buf[1] layout is ambiguous. The protocol doc says 4-bit serial + 4-bit mode,
-    // but real device behavior suggests it may be A-mode + B-mode. The original
-    // author used 0x11 (both nibbles = mode 1) and confirmed it works.
-    // Reverting to 0x11 until we can verify the actual firmware interpretation.
+    // Testing serial=0 + mode=1 interpretation of buf[1].
+    // If the device uses serial+mode and caches the last serial in NVRAM,
+    // serial=0 might register as a session reset after power cycle.
     buf[0] = 0xB0;
-    buf[1] = 0x11;
+    buf[1] = 0x01;
 
     // Channel intensities (0-200). Soft limits are enforced by firmware via BF frame.
     // Volume is a user-controlled 0-100% multiplier (like XToys' % slider).
