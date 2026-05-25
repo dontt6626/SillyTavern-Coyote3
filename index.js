@@ -68,8 +68,6 @@ const defaultSettings = {
     freqBalanceB: 160,
     intensityBalanceA: 200,
     intensityBalanceB: 200,
-    volumeA: 100,
-    volumeB: 100,
     ramping: false,
     guidelines: `1. Match intensity to context: gentle (1-50), moderate (51-120), intense (121-200)
 2. Use commands that fit the scene naturally
@@ -86,7 +84,6 @@ let btNotifyChar = null;
 let btBatteryChar = null;
 let b0Timer = null;
 let bluetoothConnected = false;
-let b0Serial = 0; // 4-bit B0 frame serial (0-15), echoed in B1 feedback
 
 // Runtime targets for B0 loop
 let targetA = 0;
@@ -247,24 +244,20 @@ async function sendB0Frame() {
     const now = Date.now();
 
     const buf = new Uint8Array(20);
-
-    // Revert to original author's 0x11. Both nibbles = mode 1 (absolute).
-    // The serial+mode interpretation does not match device behavior.
+    // Mode byte: both channels in mode 1 (absolute). Using 0x11 ensures both
+    // nibbles are non-zero regardless of whether high nibble = A or B.
+    // Earlier 0x0F left one nibble at 0, which some firmware treats as off/relative.
     buf[0] = 0xB0;
     buf[1] = 0x11;
 
-    // Channel intensities (0-200). Soft limits are enforced by firmware via BF frame.
-    // Volume is a user-controlled 0-100% multiplier (like XToys' % slider).
-    const settings = extension_settings[MODULE_NAME];
-    const volA = (settings.volumeA ?? 100) / 100;
-    const volB = (settings.volumeB ?? 100) / 100;
-    let aIntensity = clamp(Math.round(targetA * volA), 0, 200);
-    let bIntensity = clamp(Math.round(targetB * volB), 0, 200);
+    // Determine channel intensities and slot values
+    let aIntensity = clamp(targetA, 0, 200);
+    let bIntensity = clamp(targetB, 0, 200);
 
-    // Flat mode: use max slot strength for strongest continuous output.
-    // The English protocol docs claim 0-100, but empirical testing shows the
-    // device firmware accepts 0-255 and scales output proportionally.
-    // Values above 100 are NOT discarded; they produce stronger output.
+    // Flat mode: max frequency and slot strength for strongest continuous output.
+    // Earlier versions used 100 for slot strength and 180 for freq, which felt weak.
+    // The device firmware appears to accept 0-255 for slot strength; 255 gives
+    // ~2.5x more power than 100. Frequency 240 is the max on the wire scale.
     const flatFreq = 240;
     const aFlatStr = aIntensity > 0 ? 255 : 0;
     const bFlatStr = bIntensity > 0 ? 255 : 0;
@@ -313,12 +306,14 @@ async function sendB0Frame() {
 
     try {
         await btWriteChar.writeValue(buf);
+        // Debug: log the full B0 frame once every 5 seconds to avoid spam
         if (!window._coyote3_lastB0Log || (now - window._coyote3_lastB0Log > 5000)) {
             const hex = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join(' ');
-            console.log('[Coyote3] B0 frame:', hex, '| A=', aIntensity, 'B=', bIntensity);
+            console.log('[Coyote3] B0 frame:', hex, '| A=', aIntensity, 'B=', bIntensity, 'mode=0x11');
             window._coyote3_lastB0Log = now;
         }
     } catch (e) {
+        // Write errors usually mean disconnected
         console.error('[Coyote3] B0 write error:', e);
     }
 }
@@ -515,22 +510,7 @@ async function sendCoyoteCommand(command, silent = false) {
                 return false;
         }
     } else {
-        // Apply volume scaling for socket mode before forwarding
-        const volA = (settings.volumeA ?? 100) / 100;
-        const volB = (settings.volumeB ?? 100) / 100;
-        const scaledCommand = { ...command };
-
-        if (command.type === 'strength') {
-            const vol = command.channel === 'A' ? volA : volB;
-            scaledCommand.value = Math.round(command.value * vol);
-        }
-        if (command.type === 'combo') {
-            scaledCommand.actions = (command.actions || []).map((act) => ({
-                ...act,
-                value: Math.round(act.value * (act.channel === 'A' ? volA : volB)),
-            }));
-        }
-        return sendSocketCommand(scaledCommand, silent);
+        return sendSocketCommand(command, silent);
     }
 }
 
@@ -738,15 +718,11 @@ function generateDynamicPrompt() {
     const painB = settings.maxPainThresholdB ?? 50;
     const guidelines = settings.guidelines || defaultSettings.guidelines;
 
-    const volA = settings.volumeA ?? 100;
-    const volB = settings.volumeB ?? 100;
-
     return `You can control the user's DG-LAB Coyote 3.0 e-stim device during this conversation:
 <coyote3>
 Channels: A (primary) and B (secondary)
 Soft Limits: A=${limitA}, B=${limitB}
 Pain Thresholds: A=${painA}, B=${painB} (never exceed without explicit consent)
-User Volume: A=${volA}%, B=${volB}% (the user scales your commands; use the full 0-${painA} range naturally)
 
 Strength Commands (use self-closing XML-style tags):
 <coyote3:channelA="X" time="Y"/> - Set Channel A to X (0-${painA}) for Y seconds
@@ -790,10 +766,8 @@ function updateConnectionStatus() {
     const btSection = $('#coyote3_bluetooth_section');
     const socketSection = $('#coyote3_socket_section');
 
-    const volA = (settings.volumeA ?? 100) / 100;
-    const volB = (settings.volumeB ?? 100) / 100;
-    $('#coyote3_channelA_value').text(`${targetA} → ${Math.round(targetA * volA)}`);
-    $('#coyote3_channelB_value').text(`${targetB} → ${Math.round(targetB * volB)}`);
+    $('#coyote3_channelA_value').text(targetA);
+    $('#coyote3_channelB_value').text(targetB);
     $('#coyote3_limitA_value').text(settings.softLimitA || 100);
     $('#coyote3_limitB_value').text(settings.softLimitB || 100);
     if (currentBattery !== null) {
@@ -866,10 +840,6 @@ function loadSettings() {
     $('#coyote3_soft_limit_b').val(settings.softLimitB || 100);
     $('#coyote3_pain_threshold_a').val(settings.maxPainThresholdA ?? 50);
     $('#coyote3_pain_threshold_b').val(settings.maxPainThresholdB ?? 50);
-    $('#coyote3_volume_a').val(settings.volumeA ?? 100);
-    $('#coyote3_volume_a_display').text((settings.volumeA ?? 100) + '%');
-    $('#coyote3_volume_b').val(settings.volumeB ?? 100);
-    $('#coyote3_volume_b_display').text((settings.volumeB ?? 100) + '%');
     $('#coyote3_freq_balance_a').val(settings.freqBalanceA ?? 160);
     $('#coyote3_freq_balance_b').val(settings.freqBalanceB ?? 160);
     $('#coyote3_intensity_balance_a').val(settings.intensityBalanceA ?? 0);
@@ -919,24 +889,6 @@ function setupUI() {
     $('#coyote3_socket_url').on('input', function () {
         extension_settings[MODULE_NAME].socketUrl = $(this).val();
         saveSettingsDebounced();
-    });
-
-    $('#coyote3_volume_a').on('input', function () {
-        const val = parseInt($(this).val()) || 100;
-        extension_settings[MODULE_NAME].volumeA = clamp(val, 0, 100);
-        $('#coyote3_volume_a_display').text(val + '%');
-        saveSettingsDebounced();
-        updateConnectionStatus();
-        updatePrompt();
-    });
-
-    $('#coyote3_volume_b').on('input', function () {
-        const val = parseInt($(this).val()) || 100;
-        extension_settings[MODULE_NAME].volumeB = clamp(val, 0, 100);
-        $('#coyote3_volume_b_display').text(val + '%');
-        saveSettingsDebounced();
-        updateConnectionStatus();
-        updatePrompt();
     });
 
     $('#coyote3_soft_limit_a').on('input', function () {
