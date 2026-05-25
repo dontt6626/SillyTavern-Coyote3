@@ -248,11 +248,10 @@ async function sendB0Frame() {
 
     const buf = new Uint8Array(20);
 
-    // Testing serial=0 + mode=1 interpretation of buf[1].
-    // If the device uses serial+mode and caches the last serial in NVRAM,
-    // serial=0 might register as a session reset after power cycle.
+    // Revert to original author's 0x11. Both nibbles = mode 1 (absolute).
+    // The serial+mode interpretation does not match device behavior.
     buf[0] = 0xB0;
-    buf[1] = 0x01;
+    buf[1] = 0x11;
 
     // Channel intensities (0-200). Soft limits are enforced by firmware via BF frame.
     // Volume is a user-controlled 0-100% multiplier (like XToys' % slider).
